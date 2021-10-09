@@ -1,0 +1,9 @@
+states
+27
+28
+29
+transitions
+(27, leaf4 ,28)
+(28, leaf4_ok ,28)
+(27, leaf4_nok ,29)
+(29, leaf4_nok ,29)

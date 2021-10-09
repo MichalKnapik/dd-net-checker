@@ -1,0 +1,17 @@
+states
+25
+26
+27
+28
+29
+30
+transitions
+(25, leaf7_ok ,26)
+(26, AND2_ok ,27)
+(27, AND1_ok ,28)
+(28, AND3 ,30)
+(30, AND3_ok ,30)
+(29, AND3_nok ,29)
+(25, leaf7_nok ,29)
+(25, AND2_nok ,29)
+(25, AND1_nok ,29)

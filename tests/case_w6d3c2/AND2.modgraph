@@ -1,0 +1,14 @@
+states
+30
+31
+32
+33
+34
+transitions
+(30, leaf4_ok ,31)
+(31, leaf3_ok ,32)
+(32, AND2 ,34)
+(34, AND2_ok ,34)
+(33, AND2_nok ,33)
+(30, leaf4_nok ,33)
+(30, leaf3_nok ,33)

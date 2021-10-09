@@ -1,0 +1,9 @@
+states
+14
+15
+16
+transitions
+(14, leaf5 ,15)
+(15, leaf5_ok ,15)
+(14, leaf5_nok ,16)
+(16, leaf5_nok ,16)

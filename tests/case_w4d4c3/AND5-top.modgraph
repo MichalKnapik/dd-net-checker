@@ -1,0 +1,17 @@
+states
+1
+2
+3
+4
+5
+6
+transitions
+(1, leaf11_ok ,2)
+(2, leaf10_ok ,3)
+(3, AND4_ok ,4)
+(4, AND5 ,6)
+(6, AND5_ok ,6)
+(5, AND5_nok ,5)
+(1, leaf11_nok ,5)
+(1, leaf10_nok ,5)
+(1, AND4_nok ,5)

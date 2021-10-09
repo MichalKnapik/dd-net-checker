@@ -1,0 +1,14 @@
+states
+25
+26
+27
+28
+29
+transitions
+(25, AND2_ok ,26)
+(26, AND1_ok ,27)
+(27, AND4 ,29)
+(29, AND4_ok ,29)
+(28, AND4_nok ,28)
+(25, AND2_nok ,28)
+(25, AND1_nok ,28)

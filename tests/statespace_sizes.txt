@@ -1,0 +1,23 @@
+dirname: case_w4d3c2
+full statespace: 224 nodes, 640 transitions
+
+dirname: case_w4d3c3
+full statespace: 5504 nodes, 26976 transitions
+
+dirname: case_w6d3c2
+full statespace: 2000 nodes, 7808 transitions
+
+dirname: case_w6d3c3
+full statespace: 5504 nodes, 26976 transitions
+
+dirname: case_w8d3c2
+full statespace: 5552 nodes, 24364 transitions
+
+dirname: case_w8d3c3
+full statespace: 30592 nodes, 177056 transitions
+
+dirname: case_w4d4c2
+full statespace: 674 nodes, 2368 transitions
+
+dirname: case_w4d4c3
+full statespace: 38530 nodes, 232860 transitions

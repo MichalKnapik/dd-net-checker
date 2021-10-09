@@ -1,0 +1,9 @@
+states
+38
+39
+40
+transitions
+(38, leaf3 ,39)
+(39, leaf3_ok ,39)
+(38, leaf3_nok ,40)
+(40, leaf3_nok ,40)

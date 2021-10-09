@@ -1,0 +1,14 @@
+states
+49
+50
+51
+52
+53
+transitions
+(49, leaf2_ok ,50)
+(50, leaf1_ok ,51)
+(51, AND1 ,53)
+(53, AND1_ok ,53)
+(52, AND1_nok ,52)
+(49, leaf2_nok ,52)
+(49, leaf1_nok ,52)

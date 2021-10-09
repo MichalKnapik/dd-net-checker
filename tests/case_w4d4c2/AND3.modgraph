@@ -1,0 +1,14 @@
+states
+17
+18
+19
+20
+21
+transitions
+(17, AND2_ok ,18)
+(18, AND1_ok ,19)
+(19, AND3 ,21)
+(21, AND3_ok ,21)
+(20, AND3_nok ,20)
+(17, AND2_nok ,20)
+(17, AND1_nok ,20)

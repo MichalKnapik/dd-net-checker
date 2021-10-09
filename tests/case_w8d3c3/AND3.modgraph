@@ -1,0 +1,17 @@
+states
+19
+20
+21
+22
+23
+24
+transitions
+(19, leaf9_ok ,20)
+(20, leaf8_ok ,21)
+(21, leaf7_ok ,22)
+(22, AND3 ,24)
+(24, AND3_ok ,24)
+(23, AND3_nok ,23)
+(19, leaf9_nok ,23)
+(19, leaf8_nok ,23)
+(19, leaf7_nok ,23)

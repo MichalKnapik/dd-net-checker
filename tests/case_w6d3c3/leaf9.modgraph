@@ -1,0 +1,9 @@
+states
+7
+8
+9
+transitions
+(7, leaf9 ,8)
+(8, leaf9_ok ,8)
+(7, leaf9_nok ,9)
+(9, leaf9_nok ,9)
