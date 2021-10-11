@@ -51,16 +51,30 @@ def read_model(model_fname):
 
         return states,transitions
 
-def encode_list_of_labels(label_list, bdd_mgr, variable_prefix=''):
-    """Generate new bdd variables for label_list and return a list of var names and 
-    dict from labels in label_list to their bdd encodings using these new bdd vars."""
+def encode_list_of_labels(label_list, bdd_mgr, variable_prefix='', generate_primed=False):
+    """Generate new bdd variables for label_list and return:
+    - if generate_primed = False: a list of var names and dict from labels in 
+      label_list to their bdd encodings using these new bdd vars.
+    - if  generate_primed = True: as above, plus a dict from nonprimed to primed
+      var names (for let-substitutions in bdd operations)."""
 
     needed_vars = math.ceil(math.log2(len(label_list)))
     bdd_var_names = []
+
+    if generate_primed:
+        primed_prefix = 'primed'
+        nonprimed_to_primed_dict = {}
+
     for i in range(needed_vars):
+        
         new_var_name = variable_prefix + str(i)
         mgr.add_var(new_var_name)
         bdd_var_names.append(new_var_name)
+
+        if generate_primed:
+            new_primed_var_name = primed_prefix + new_var_name
+            nonprimed_to_primed_dict[new_var_name] = new_primed_var_name
+            mgr.add_var(new_primed_var_name)
 
     encodings_dict = {}
     i = 0
@@ -78,7 +92,10 @@ def encode_list_of_labels(label_list, bdd_mgr, variable_prefix=''):
         encodings_dict[label] = bdd_encoding
         i += 1
 
-    return bdd_var_names,encodings_dict
+    if not generate_primed:
+        return bdd_var_names,encodings_dict
+    else:
+        return bdd_var_names,encodings_dict,nonprimed_to_primed_dict
 
 # The Automaton collects all the raw data and bdd structures.
 
@@ -89,10 +106,16 @@ class Automaton:
         self.known_actions = None
         self.states = None
         self.transitions = None
-        self.tau_label = 'tau' 
+        self.tau_label = 'tau'
 
         self.mgr = None
-        
+        self.state_bdd_vars = None
+        self.state_bdd_vars_nonprimed_to_primed_dict = None
+        self.state_to_nonprimed_bdd_encoding = None
+        self.action_bdd_vars = None
+        self.action_to_bdd_encoding = None
+        self.transition_relation = None
+
     def read_automaton(self, model_fname, actions_list):
         self.known_actions = []
         self.states, self.transitions = read_model(model_fname)
@@ -111,19 +134,45 @@ class Automaton:
         ret += 'states: ' + str(self.states)
         ret += '\n' if self.known_actions is None or len(self.known_actions) == 0 else '\nknown actions: ' + str(self.known_actions)
         ret += '\ntransitions: ' + str(list(self.transitions))
-
+        
         return ret
 
-    def encode_model(self):
-        # TODO
-        pass
+    def print_bdd_debug_structs(self):
+        print('-'*80)        
+        print('self.state_bdd_vars = ' + str(self.state_bdd_vars))
+        print('self.state_bdd_vars_nonprimed_to_primed_dict = ' + str(self.state_bdd_vars_nonprimed_to_primed_dict))
+        print('self.state_to_nonprimed_bdd_encoding = ' + str(self.state_to_nonprimed_bdd_encoding))
+        print('self.action_bdd_vars = ' + str(self.action_bdd_vars))
+        print('self.action_to_bdd_encoding = ' + str(self.action_to_bdd_encoding))
+        print('-'*80)
+    
+    def encode_model(self, mgr, action_bdd_vars, action_to_bdd_encoding):
+        self.mgr = mgr
+        
+        # these encodings are shared for all the automata, so need to be provided externally
+        self.action_bdd_vars = action_bdd_vars
+        self.action_to_bdd_encoding = action_to_bdd_encoding
+
+        # encode states
+        self.state_bdd_vars,self.state_to_nonprimed_bdd_encoding,self.state_bdd_vars_nonprimed_to_primed_dict\
+            = encode_list_of_labels(self.states, self.mgr, 'state', True)
+
+        # encode transitions
+        # todo
+        self.transition_relation = self.mgr.true
 
 if __name__ == '__main__':
     mgr = _bdd.BDD()
-    actions = read_actions('tests/case_w4d3c2/sync.modgraph')
-    action_label_to_bdd_encoding = encode_list_of_labels(actions, mgr, 'act')
-    print(action_label_to_bdd_encoding)
 
+    # read actions (common for all automata)
+    actions = read_actions('tests/case_w4d3c2/sync.modgraph')
+    action_bdd_var_names, action_bdd_encodings = encode_list_of_labels(actions, mgr, 'act')
+
+    # make, read and encode automaton
     wuch = Automaton('wuch')
     wuch.read_automaton('tests/case_w4d3c2/AND1.modgraph', actions)
+    wuch.encode_model(mgr, action_bdd_var_names,action_bdd_encodings)
+    
     print(wuch)
+#    wuch.print_bdd_debug_structs()
+    
