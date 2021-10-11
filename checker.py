@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import math
+
 try:
     import dd
-
 except ImportError:
     print("Cannot import DD module! Exiting.")
     sys.exit()
@@ -15,6 +16,8 @@ try:
 except ImportError as e:
     print("Failed to load CUDD, but I really need it (autoref won't do). Exiting.")
     sys.exit()
+
+# Helper functions.
 
 def read_actions(sync_fname):
     with open(sync_fname) as f:
@@ -41,5 +44,58 @@ def read_model(model_fname):
 
         return states,transitions
 
-print(read_actions('tests/case_w4d3c2/sync.modgraph'))
-print(read_model('tests/case_w4d3c2/AND1.modgraph'))
+def encode_list_of_labels(label_list, bdd_mgr, variable_prefix=''):
+    """Generate new bdd variables for label_list and return a dict from
+    labels in label_list to their bdd encodings using these new bdd vars."""
+
+    needed_vars = math.ceil(math.log2(len(label_list)))
+    for i in range(needed_vars):
+        mgr.add_var(variable_prefix + str(i))
+
+    encodings_dict = {}
+    i = 0
+    for label in label_list:
+        raw_encoding = ('0' * needed_vars + bin(i)[2:])[-needed_vars:]
+        bool_encoding = [bool(int(bit)) for bit in raw_encoding]
+
+        bdd_encoding = bdd_mgr.true        
+        for j in range(len(bool_encoding)):
+            if bool_encoding[j]:
+                bdd_encoding = bdd_encoding & bdd_mgr.var(variable_prefix + str(j))
+            else:
+                bdd_encoding = bdd_encoding & (~bdd_mgr.var(variable_prefix + str(j)))
+        
+        encodings_dict[label] = bdd_encoding
+        i += 1
+
+    return encodings_dict
+
+# The Automaton collects all the raw data and bdd structures.
+
+class Automaton:
+
+    def __init__(self, name=''):
+        self.name = name
+        self.mgr = None
+        self.known_actions = None
+        self.states = None
+        self.transitions = None
+
+    def read_automaton(self, model_fname, actions_list):
+        self.known_actions = []
+        self.states, self.transitions = read_model(model_fname)
+
+    def __str__(self):
+        ret = f'automaton {self.name}\n'
+        ret += '' if self.known_actions is None or len(self.known_actions) == 0 else 'with known actions: ' + ' '.join(self.known_actions)
+
+        return ret
+
+if __name__ == '__main__':
+    mgr = _bdd.BDD()
+    actions = read_actions('tests/case_w4d3c2/sync.modgraph')
+    action_label_to_bdd_encoding = encode_list_of_labels(actions, mgr, 'act')
+
+    wuch = Automaton('wuch')
+    wuch.read_automaton('tests/case_w4d3c2/AND1.modgraph', actions)
+    print(wuch)
