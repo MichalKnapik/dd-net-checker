@@ -4,11 +4,12 @@
 ################################################################################
 # This is a script for counting the number of states and (approximately) the   #
 # number of transitions in a network of synchronizing automata given in a mod- #
-# graph file (see tests). It uses dd-tulip CUDD BDD bindings.                  #
+# graph file (see tests dir). It uses dd-tulip CUDD BDD bindings.              #
 ################################################################################
 
 import sys
 import math
+import functools
 
 try:
     import dd
@@ -55,7 +56,7 @@ def encode_list_of_labels(label_list, bdd_mgr, variable_prefix='', generate_prim
     """Generate new bdd variables for label_list and return:
     - if generate_primed = False: a list of var names and dict from labels in 
       label_list to their bdd encodings using these new bdd vars.
-    - if  generate_primed = True: as above, plus a dict from nonprimed to primed
+    - if generate_primed = True: as above, plus a dict from nonprimed to primed
       var names (for let-substitutions in bdd operations)."""
 
     needed_vars = math.ceil(math.log2(len(label_list)))
@@ -154,12 +155,25 @@ class Automaton:
         self.action_to_bdd_encoding = action_to_bdd_encoding
 
         # encode states
-        self.state_bdd_vars,self.state_to_nonprimed_bdd_encoding,self.state_bdd_vars_nonprimed_to_primed_dict\
+        self.state_bdd_vars,self.state_to_nonprimed_bdd_encoding,self.state_bdd_vars_nonprimed_to_primed_dict \
             = encode_list_of_labels(self.states, self.mgr, 'state', True)
 
+        # tau_bdd: negated conjunction of encodings of all the actions, needed to prevent tau from syncing with
+        # known actions of other agents
+        all_action_bdds = [self.action_to_bdd_encoding[act] for act in self.known_actions]
+        tau_bdd = ~functools.reduce(lambda x,y: x|y, all_action_bdds)
+
         # encode transitions
-        # todo
-        self.transition_relation = self.mgr.true
+        self.transition_relation = self.mgr.false
+        for source,label,target in self.transitions:
+
+            source_bdd = self.state_to_nonprimed_bdd_encoding[source]
+            label_bdd = tau_bdd if label == self.tau_label else self.action_to_bdd_encoding[label]
+
+            target_bdd = self.state_to_nonprimed_bdd_encoding[target]
+            target_bdd_primed = self.mgr.let(self.state_bdd_vars_nonprimed_to_primed_dict, target_bdd)
+
+            self.transition_relation = self.transition_relation | (source_bdd & label_bdd & target_bdd_primed)
 
 if __name__ == '__main__':
     mgr = _bdd.BDD()
@@ -167,7 +181,7 @@ if __name__ == '__main__':
     # read actions (common for all automata)
     actions = read_actions('tests/case_w4d3c2/sync.modgraph')
     action_bdd_var_names, action_bdd_encodings = encode_list_of_labels(actions, mgr, 'act')
-
+    
     # make, read and encode automaton
     wuch = Automaton('wuch')
     wuch.read_automaton('tests/case_w4d3c2/AND1.modgraph', actions)
