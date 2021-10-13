@@ -106,6 +106,7 @@ class Automaton:
         self.name = name
         self.known_actions = None
         self.states = None
+        self.init_state = None
         self.transitions = None
         self.tau_label = 'tau'
 
@@ -115,11 +116,13 @@ class Automaton:
         self.state_to_nonprimed_bdd_encoding = None
         self.action_bdd_vars = None
         self.action_to_bdd_encoding = None
+        self.init_state_bdd = None
         self.transition_relation = None
 
     def read_automaton(self, model_fname, actions_list):
         self.known_actions = []
         self.states, self.transitions = read_model(model_fname)
+        self.init_state = self.states[0]
 
         # note: labels of all the transitions that do not belong to actions_list
         # are replaced with tau_label (i.e., non-synchronized transition).
@@ -156,7 +159,8 @@ class Automaton:
 
         # encode states
         self.state_bdd_vars,self.state_to_nonprimed_bdd_encoding,self.state_bdd_vars_nonprimed_to_primed_dict \
-            = encode_list_of_labels(self.states, self.mgr, 'state', True)
+            = encode_list_of_labels(self.states, self.mgr, f'{self.name}state', True)
+        self.init_state_bdd = self.state_to_nonprimed_bdd_encoding[self.init_state]
 
         # tau_bdd: negated conjunction of encodings of all the actions, needed to prevent tau from syncing with
         # known actions of other agents
@@ -175,6 +179,57 @@ class Automaton:
 
             self.transition_relation = self.transition_relation | (source_bdd & label_bdd & target_bdd_primed)
 
+# The Network collects automata, builds the global statespace, and has methods for analyzing it.
+
+class Network:
+
+    def __init__(self, automata, actions, name=''):
+        self.name = name
+        self.automata = automata
+        self.actions = actions
+        
+        self.mgr = None
+        self.state_bdd_vars = []
+        self.state_bdd_vars_nonprimed_to_primed_dict = {}
+        self.action_bdd_vars = None
+        self.action_to_bdd_encoding = None
+
+        self.init_state_bdd = None
+        self.transition_relation = None        
+
+    def encode_model(self, mgr, action_bdd_vars, action_to_bdd_encoding):
+        self.mgr = mgr
+        self.action_bdd_vars = action_bdd_vars
+        self.action_to_bdd_encoding = action_to_bdd_encoding
+
+        # calls encode_model of the underlying automata
+        self.init_state_bdd = mgr.true
+        self.transition_relation = mgr.true
+        for automaton in self.automata:
+            
+            automaton.encode_model(self.mgr, self.action_bdd_vars, self.action_to_bdd_encoding)
+            self.init_state_bdd = self.init_state_bdd & automaton.init_state_bdd
+            self.transition_relation = self.transition_relation & automaton.transition_relation
+
+            assert (not any([x in self.state_bdd_vars for x in automaton.state_bdd_vars])),\
+                'Error: two automate with the same name or other state-naming issue.'
+            self.state_bdd_vars.extend(automaton.state_bdd_vars)
+            self.state_bdd_vars_nonprimed_to_primed_dict.update(automaton.state_bdd_vars_nonprimed_to_primed_dict)
+
+    # TODO - compute reachable space
+            
+    def print_bdd_debug_structs(self):
+        print('-'*80)        
+        print('self.state_bdd_vars = ' + str(self.state_bdd_vars))
+        print('self.state_bdd_vars_nonprimed_to_primed_dict = ' + str(self.state_bdd_vars_nonprimed_to_primed_dict))
+        print('self.action_bdd_vars = ' + str(self.action_bdd_vars))
+        print('self.action_to_bdd_encoding = ' + str(self.action_to_bdd_encoding))
+        print('-'*80)
+
+    def __str__(self):
+        return f'Network {self.name} with automata:\n' + '\n'.join(['>> '+str(a) for a in self.automata])
+
+
 if __name__ == '__main__':
     mgr = _bdd.BDD()
 
@@ -182,11 +237,16 @@ if __name__ == '__main__':
     actions = read_actions('tests/case_w4d3c2/sync.modgraph')
     action_bdd_var_names, action_bdd_encodings = encode_list_of_labels(actions, mgr, 'act')
     
-    # make, read and encode automaton
+    # make, read and encode automatons
     wuch = Automaton('wuch')
     wuch.read_automaton('tests/case_w4d3c2/AND1.modgraph', actions)
-    wuch.encode_model(mgr, action_bdd_var_names,action_bdd_encodings)
+
+    wub = Automaton('wub')
+    wub.read_automaton('tests/case_w4d3c2/AND2.modgraph', actions)
     
-    print(wuch)
-#    wuch.print_bdd_debug_structs()
-    
+    # make a network
+    net = Network([wuch, wub], actions, 'pulwa')
+    net.encode_model(mgr, action_bdd_var_names, action_bdd_encodings)
+
+    print(net)
+    net.print_bdd_debug_structs()
