@@ -118,10 +118,15 @@ class Automaton:
         self.action_bdd_vars = None
         self.action_to_bdd_encoding = None
         self.init_state_bdd = None
-        self.transition_relation = None
+
+        # a map from action name (incl. tau_label) to encoding:
+        # \/ nonprime_encoded_source /\ action /\ nonprime_encoded_target
+        self.transition_relation = {}
+        # encoding of \/_x (nonprime_encoded_state_x/\prime_encoded_state_x)
+        self.identity = None
 
     def read_automaton(self, model_fname, actions_list):
-        self.known_actions = []
+        self.known_actions = [self.tau_label]
         self.states, self.transitions = read_model(model_fname)
         self.init_state = self.states[0]
 
@@ -158,31 +163,32 @@ class Automaton:
         self.action_bdd_vars = action_bdd_vars
         self.action_to_bdd_encoding = action_to_bdd_encoding
 
-        # do zmiany - dorzucić dysjunkcję z alternatywą nieznanych akcji
-
         # encode states
         self.state_bdd_vars,self.state_to_nonprimed_bdd_encoding,self.state_bdd_vars_nonprimed_to_primed_dict \
             = encode_list_of_labels(self.states, self.mgr, f'{self.name}state', True)
         self.init_state_bdd = self.state_to_nonprimed_bdd_encoding[self.init_state]
 
-        # tau_bdd: negated conjunction of encodings of all the actions, needed to prevent tau from syncing with
-        # known actions of other agents
-        all_action_bdds = [self.action_to_bdd_encoding[act] for act in self.known_actions]
-        tau_bdd = self.mgr.true if len(all_action_bdds) == 0 else ~functools.reduce(lambda x,y: x|y, all_action_bdds)
+        # the special silent action does not sync
+        tau_bdd = self.mgr.true
+
+        # prepare the state identity function
+        self.identity = self.mgr.false
+        for state,bdd_encoding in self.state_to_nonprimed_bdd_encoding.items():
+            bdd_primed_encoding = self.mgr.let(self.state_bdd_vars_nonprimed_to_primed_dict, bdd_encoding)
+            self.identity = self.identity | (bdd_encoding & bdd_primed_encoding)
 
         # encode transitions
-        self.transition_relation = self.mgr.false
-        print(self.name)
-        for source,label,target in self.transitions:
-            print(source,label,target)
+        for action in self.known_actions:
+            self.transition_relation[action] = self.mgr.false
 
+        for source,label,target in self.transitions:
             source_bdd = self.state_to_nonprimed_bdd_encoding[source]
             label_bdd = tau_bdd if label == self.tau_label else self.action_to_bdd_encoding[label]
 
             target_bdd = self.state_to_nonprimed_bdd_encoding[target]
             target_bdd_primed = self.mgr.let(self.state_bdd_vars_nonprimed_to_primed_dict, target_bdd)
 
-            self.transition_relation = self.transition_relation | (source_bdd & label_bdd & target_bdd_primed)
+            self.transition_relation[label] = self.transition_relation[label] | (source_bdd & label_bdd & target_bdd_primed)
 
 # The Network collects automata, builds the global statespace, and has methods for analyzing it.
 
@@ -200,50 +206,64 @@ class Network:
         self.action_to_bdd_encoding = None
 
         self.init_state_bdd = None
-        self.transition_relation = None        
+        self.transition_relation = None
+
+    def get_automata_that_know_action(self, action):
+        return [auto for auto in self.automata if action in auto.known_actions]
 
     def encode_model(self, mgr, action_bdd_vars, action_to_bdd_encoding):
         self.mgr = mgr
         self.action_bdd_vars = action_bdd_vars
         self.action_to_bdd_encoding = action_to_bdd_encoding
 
-        # calls encode_model of the underlying automata
+        # call encode_model of the underlying automata, build the global initial state 
         self.init_state_bdd = mgr.true
-        self.transition_relation = mgr.true
         for automaton in self.automata:
-            
             automaton.encode_model(self.mgr, self.action_bdd_vars, self.action_to_bdd_encoding)
             self.init_state_bdd = self.init_state_bdd & automaton.init_state_bdd
-            self.transition_relation = self.transition_relation & automaton.transition_relation
-
             assert (not any([x in self.state_bdd_vars for x in automaton.state_bdd_vars])),\
                 'Error: two automata with the same name or other state-naming issue.'
-            self.state_bdd_vars.extend(automaton.state_bdd_vars)
-            self.state_bdd_vars_nonprimed_to_primed_dict.update(automaton.state_bdd_vars_nonprimed_to_primed_dict)
+
+        # build the global transition relation
+
+        self.transition_relation = self.mgr.false
+        # build transitions w.r.t. self.actions (possibly synchronising)
+        for action in self.actions:
+            sync_automata = self.get_automata_that_know_action(action)
+            if len(sync_automata) > 0: # if someone reacts to the action...
+                # ...take the conjunction of all the transitions for the automata that know the action...
+                sync_transitions = functools.reduce(lambda x,y: x&y, \
+                                               [auto.transition_relation[action] for auto in sync_automata])
+                other_automata = [auto for auto in self.automata if auto not in sync_automata]
+                # ...with the state identity for the automata that do not know the action
+                if len(other_automata) > 0:
+                    identity = functools.reduce(lambda x,y: x&y, [auto.identity for auto in other_automata])
+                else:
+                    identity = self.mgr.true
+
+                sync_transitions = sync_transitions & identity
+
+                self.transition_relation = self.transition_relation | sync_transitions
+                
+        
+        #     assert (not any([x in self.state_bdd_vars for x in automaton.state_bdd_vars])),\
+        #         'Error: two automata with the same name or other state-naming issue.'
+
+        
+            
+        # self.transition_relation = self.transition_relation & automaton.transition_relation
+        #     self.state_bdd_vars.extend(automaton.state_bdd_vars)
+        #     self.state_bdd_vars_nonprimed_to_primed_dict.update(automaton.state_bdd_vars_nonprimed_to_primed_dict)
 
     def compute_reachable_space(self, verbose=False):
         # call after encoding model only
         if verbose:
             print('computing reachable statespace')
+        
+        # todo - all below is mess, throw it away
 
         # frontier-based approach
         reachable_states_bdd = self.init_state_bdd
-        # debug
-        nonprimed_state_and_action_bdd_var_names = self.state_bdd_vars + self.action_bdd_vars        
-        primedvars = ['primedwuchstate0', 'primedwuchstate1', 'primedwuchstate2', 'primedwubstate0', 'primedwubstate1', 'primedwubstate2']
-        primed_state_and_action_bdd_var_names = primedvars + self.action_bdd_vars
-
-        chuj = self.mgr.quantify(self.transition_relation, primed_state_and_action_bdd_var_names, forall=False)
-        
-#        chuj = self.mgr.let(self.state_bdd_vars_nonprimed_to_primed_dict, chuj)
-
-        self.print_bdd_states_debug(chuj)
-        print('fuk')
-#        assert (reachable_states_bdd & self.transition_relation) != self.mgr.false, 'kurwa, chuj, stejtspejs'
-
-        sys.exit()
-        # end debug
-        
         frontier = reachable_states_bdd
         prev_bdd = self.mgr.false
 
@@ -292,15 +312,15 @@ if __name__ == '__main__':
     
     # make, read and encode automatons
     wuch = Automaton('wuch')
-    wuch.read_automaton('AND1.modgraph', actions)
+    wuch.read_automaton('tests/case_w4d3c2/AND1.modgraph', actions)
 
     wub = Automaton('wub')
-    wub.read_automaton('AND2.modgraph', actions)
+    wub.read_automaton('tests/case_w4d3c2/AND2.modgraph', actions)
     
     # make a network
     net = Network([wuch, wub], actions, 'pulwa')
     net.encode_model(mgr, action_bdd_var_names, action_bdd_encodings)
 
-    print(net)
-    net.print_bdd_debug_structs()
-    net.compute_reachable_space(verbose=True)
+    # print(net)
+    # net.print_bdd_debug_structs()
+#    net.compute_reachable_space(verbose=True)
