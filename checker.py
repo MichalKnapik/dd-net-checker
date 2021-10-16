@@ -11,6 +11,7 @@ import sys
 import math
 import functools
 import itertools
+import argparse
 
 try:
     import dd
@@ -38,7 +39,7 @@ def read_model(model_fname):
         lines = [f.strip() for f in f.readlines() if len(f.strip()) > 0]
 
         if lines[0] != 'states':
-            print("Model file error: no leading 'states'.")
+            print(f"Model file {model_fname} error: no leading 'states'.")
             sys.exit()
         try:
             state_sec_end = lines.index('transitions')
@@ -257,10 +258,8 @@ class Network:
             local_transitions = auto.transition_relation[auto.tau_label] & identity
             self.transition_relation = self.transition_relation | local_transitions
 
-    def compute_reachable_space(self, verbose=False):
+    def compute_reachable_space(self, verbose=0):
         # call after encoding model only
-        if verbose:
-            print('computing reachable statespace')
         
         reachable_states_bdd = self.init_state_bdd
         prev_bdd = self.mgr.false
@@ -278,9 +277,10 @@ class Network:
 
             reachable_states_bdd = reachable_states_bdd | next_states_bdd_nonprimed
 
-            if verbose:
+            if verbose > 0:
                 print(f'iteration {i}: reached {self.mgr.count(reachable_states_bdd)} state(s)')
-                self.print_bdd_states_debug(reachable_states_bdd)
+                if verbose > 1:
+                    self.print_bdd_states_debug(reachable_states_bdd)
 
             i += 1
 
@@ -306,26 +306,44 @@ class Network:
         return f'Network {self.name} with automata:\n' + '\n'.join(['>> '+str(a) for a in self.automata])
 
 if __name__ == '__main__':
+    
+    parser = argparse.ArgumentParser(description='A tiny model checker for automata networks.'
+                                     'It computes the statespace, reports it size and that\'s it.')
+    parser.add_argument('syncfile', type=str, help='a file with the list of synchronizing actions')    
+    parser.add_argument('modfiles', type=str, nargs='+', help='the list of modgraph automata files')
+    parser.add_argument('--verbose', type=int, default=0, help='verbosity level (currently 0-3)')
+    args = parser.parse_args()
+
+    # run the checker
     mgr = _bdd.BDD()
 
     # read actions (common for all automata)
-    actions = read_actions('sync.modgraph')
+    actions = read_actions(args.syncfile)
     action_bdd_var_names, action_bdd_encodings = encode_list_of_labels(actions, mgr, 'act')
     
-    # make, read and encode automatons
-    wuch = Automaton('wuch')
-    wuch.read_automaton('X.modgraph', actions)
-
-    wub = Automaton('wub')
-    wub.read_automaton('Y.modgraph', actions)
-
-    wuk = Automaton('wuk')
-    wuk.read_automaton('Z.modgraph', actions)    
+    # read automata
+    automata = []
+    i = 0
+    for auto_file in args.modfiles:
+        autoname = f'wuch{i}'
+        auto = Automaton(autoname)
+        auto.read_automaton(auto_file, actions)
+        automata.append(auto)
+        i += 1
     
     # make a network
-    net = Network([wuch, wub, wuk], actions, 'pulwa')
+    net = Network(automata, actions, 'net')
     net.encode_model(mgr, action_bdd_var_names, action_bdd_encodings)
 
-    print(net)
-    net.print_bdd_debug_structs()
-    net.compute_reachable_space(verbose=True)
+    print(f'Read and encoded network of {len(automata)} automata.')
+    if args.verbose > 0:
+        print(net)
+    if args.verbose > 2:
+        net.print_bdd_debug_structs()
+    
+    # run the checker
+    print('** Computing reachable statespace. This might take a while... **')
+    net.compute_reachable_space(verbose=args.verbose)
+
+    # report
+    print('Done.')

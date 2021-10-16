@@ -1,9 +1,8 @@
 states
-AX
-BX
-CX
+1
+2
+3
 transitions
-(AX, a ,BX)
-(BX, b ,CX)
-(CX, c ,AX)
-
+(1, a ,2)
+(2, b ,3)
+(3, c ,1)

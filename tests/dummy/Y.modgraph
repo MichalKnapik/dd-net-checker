@@ -1,9 +1,8 @@
 states
-AY
-BY
-CY
+1
+2
+3
 transitions
-(AY, a ,BY)
-(BY, c ,CY)
-(CY, u ,AY)
-
+(1, a ,2)
+(2, c ,3)
+(3, u ,1)

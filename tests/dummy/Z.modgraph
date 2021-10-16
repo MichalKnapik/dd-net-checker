@@ -1,9 +1,8 @@
 states
-AZ
-BZ
-CZ
+1
+2
+3
 transitions
-(AZ, b ,BZ)
-(BZ, c ,CZ)
-(CZ, l ,AZ)
-
+(1, b ,2)
+(2, c ,3)
+(3, l ,1)
