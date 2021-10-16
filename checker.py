@@ -188,14 +188,6 @@ class Automaton:
 
             target_bdd = self.state_to_nonprimed_bdd_encoding[target]
             target_bdd_primed = self.mgr.let(self.state_bdd_vars_nonprimed_to_primed_dict, target_bdd)
-
-            # debug
-            print('@'*112)
-            for state,encoding in self.state_to_nonprimed_bdd_encoding.items():
-                primed_encoding = self.mgr.let(self.state_bdd_vars_nonprimed_to_primed_dict, encoding)
-                print(target, state, primed_encoding == target_bdd_primed)
-            # --debug
-
             self.transition_relation[label] = self.transition_relation[label] | (source_bdd & label_bdd & target_bdd_primed)
 
 # The Network collects automata, builds the global statespace, and has methods for analyzing it.
@@ -234,38 +226,10 @@ class Network:
 
         # build the global transition relation
 
-        # big debug
-        sync_automata = self.get_automata_that_know_action('c')
-        sync_transitions = self.mgr.true
-        for auto in sync_automata:
-            sync_transitions = sync_transitions & auto.transition_relation['c']
-
-        nonprimed_state_and_action_bdd_var_names = self.state_bdd_vars + self.action_bdd_vars
-        primed_state_and_action_bdd_var_names = list(self.state_bdd_vars_nonprimed_to_primed_dict.values()) + self.action_bdd_vars
-
-        sources = self.mgr.quantify(sync_transitions, primed_state_and_action_bdd_var_names, forall=False)
-
-        targetsprimed = self.mgr.quantify(sync_transitions, nonprimed_state_and_action_bdd_var_names, forall=False)
-        reversefucker = {}
-        for x,y in self.state_bdd_vars_nonprimed_to_primed_dict.items():
-            reversefucker[y] = x
-        print(reversefucker)
-        targets = self.mgr.let(reversefucker, targetsprimed)
-
-        print('sources:')
-        self.print_bdd_states_debug(sources)
-        print('targets:')
-        self.print_bdd_states_debug(targets)
-        print('-'*100)
-
-        sys.exit()
-
-        # end big debug
-
         self.transition_relation = self.mgr.false
         # build transitions w.r.t. self.actions (possibly synchronising)
         for action in self.actions:
-            print(f'encoding {action}') # debug
+
             sync_automata = self.get_automata_that_know_action(action)
 
             if len(sync_automata) > 0: # if someone reacts to the action...
@@ -281,25 +245,6 @@ class Network:
                     identity = self.mgr.true
 
                 sync_transitions = sync_transitions & identity
-
-                # -- debug
-                nonprimed_state_and_action_bdd_var_names = self.state_bdd_vars + self.action_bdd_vars
-                primed_state_and_action_bdd_var_names = list(self.state_bdd_vars_nonprimed_to_primed_dict.values()) + self.action_bdd_vars
-                sources = self.mgr.quantify(sync_transitions, primed_state_and_action_bdd_var_names, forall=False)
-                targetsprimed = self.mgr.quantify(sync_transitions, nonprimed_state_and_action_bdd_var_names, forall=False)
-                targets = self.mgr.let(self.state_bdd_vars_nonprimed_to_primed_dict, targetsprimed)
-                print('sources:')
-                self.print_bdd_states_debug(sources)
-                print('targets:')
-                self.print_bdd_states_debug(targets)
-                print('-'*100)
-
-                # wniosek - cos nie tak z targetem!!111, ale sources są ok..
-                
-
-                # -- debug end
-
-                
                 self.transition_relation = self.transition_relation | sync_transitions
 
         # add local (tau) transitions
