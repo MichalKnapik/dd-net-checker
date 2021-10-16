@@ -10,6 +10,7 @@
 import sys
 import math
 import functools
+import itertools
 
 try:
     import dd
@@ -157,6 +158,8 @@ class Automaton:
         self.action_bdd_vars = action_bdd_vars
         self.action_to_bdd_encoding = action_to_bdd_encoding
 
+        # do zmiany - dorzucić dysjunkcję z alternatywą nieznanych akcji
+
         # encode states
         self.state_bdd_vars,self.state_to_nonprimed_bdd_encoding,self.state_bdd_vars_nonprimed_to_primed_dict \
             = encode_list_of_labels(self.states, self.mgr, f'{self.name}state', True)
@@ -165,11 +168,13 @@ class Automaton:
         # tau_bdd: negated conjunction of encodings of all the actions, needed to prevent tau from syncing with
         # known actions of other agents
         all_action_bdds = [self.action_to_bdd_encoding[act] for act in self.known_actions]
-        tau_bdd = ~functools.reduce(lambda x,y: x|y, all_action_bdds)
+        tau_bdd = self.mgr.true if len(all_action_bdds) == 0 else ~functools.reduce(lambda x,y: x|y, all_action_bdds)
 
         # encode transitions
         self.transition_relation = self.mgr.false
+        print(self.name)
         for source,label,target in self.transitions:
+            print(source,label,target)
 
             source_bdd = self.state_to_nonprimed_bdd_encoding[source]
             label_bdd = tau_bdd if label == self.tau_label else self.action_to_bdd_encoding[label]
@@ -212,11 +217,60 @@ class Network:
             self.transition_relation = self.transition_relation & automaton.transition_relation
 
             assert (not any([x in self.state_bdd_vars for x in automaton.state_bdd_vars])),\
-                'Error: two automate with the same name or other state-naming issue.'
+                'Error: two automata with the same name or other state-naming issue.'
             self.state_bdd_vars.extend(automaton.state_bdd_vars)
             self.state_bdd_vars_nonprimed_to_primed_dict.update(automaton.state_bdd_vars_nonprimed_to_primed_dict)
 
-    # TODO - compute reachable space
+    def compute_reachable_space(self, verbose=False):
+        # call after encoding model only
+        if verbose:
+            print('computing reachable statespace')
+
+        # frontier-based approach
+        reachable_states_bdd = self.init_state_bdd
+        # debug
+        nonprimed_state_and_action_bdd_var_names = self.state_bdd_vars + self.action_bdd_vars        
+        primedvars = ['primedwuchstate0', 'primedwuchstate1', 'primedwuchstate2', 'primedwubstate0', 'primedwubstate1', 'primedwubstate2']
+        primed_state_and_action_bdd_var_names = primedvars + self.action_bdd_vars
+
+        chuj = self.mgr.quantify(self.transition_relation, primed_state_and_action_bdd_var_names, forall=False)
+        
+#        chuj = self.mgr.let(self.state_bdd_vars_nonprimed_to_primed_dict, chuj)
+
+        self.print_bdd_states_debug(chuj)
+        print('fuk')
+#        assert (reachable_states_bdd & self.transition_relation) != self.mgr.false, 'kurwa, chuj, stejtspejs'
+
+        sys.exit()
+        # end debug
+        
+        frontier = reachable_states_bdd
+        prev_bdd = self.mgr.false
+
+        nonprimed_state_and_action_bdd_var_names = self.state_bdd_vars + self.action_bdd_vars
+        i = 1
+        while frontier != self.mgr.false:
+            
+            prev_bdd = reachable_states_bdd
+            next_states_bdd_primed = self.mgr.quantify((reachable_states_bdd & self.transition_relation), \
+                                                nonprimed_state_and_action_bdd_var_names, forall=False)
+            next_states_bdd_nonprimed = self.mgr.let(self.state_bdd_vars_nonprimed_to_primed_dict, next_states_bdd_primed)
+
+            frontier = next_states_bdd_nonprimed & ~reachable_states_bdd
+            reachable_states_bdd = reachable_states_bdd | frontier
+
+            if verbose:
+                print(f'iteration {i}: reached {self.mgr.count(reachable_states_bdd)} state(s)')
+
+        return reachable_states_bdd
+
+    def print_bdd_states_debug(self, bdd_states):
+        # don't try to use it for anything but small debugging
+        for gstate in itertools.product(*[auto.states for auto in self.automata]):
+            gstate_encoding = functools.reduce(lambda x,y: x&y,[autom.state_to_nonprimed_bdd_encoding[loc] \
+                                                                for loc,autom in zip(gstate, self.automata)])
+            if gstate_encoding & bdd_states == gstate_encoding:
+                print(gstate)
             
     def print_bdd_debug_structs(self):
         print('-'*80)        
@@ -229,7 +283,6 @@ class Network:
     def __str__(self):
         return f'Network {self.name} with automata:\n' + '\n'.join(['>> '+str(a) for a in self.automata])
 
-
 if __name__ == '__main__':
     mgr = _bdd.BDD()
 
@@ -239,10 +292,10 @@ if __name__ == '__main__':
     
     # make, read and encode automatons
     wuch = Automaton('wuch')
-    wuch.read_automaton('tests/case_w4d3c2/AND1.modgraph', actions)
+    wuch.read_automaton('AND1.modgraph', actions)
 
     wub = Automaton('wub')
-    wub.read_automaton('tests/case_w4d3c2/AND2.modgraph', actions)
+    wub.read_automaton('AND2.modgraph', actions)
     
     # make a network
     net = Network([wuch, wub], actions, 'pulwa')
@@ -250,3 +303,4 @@ if __name__ == '__main__':
 
     print(net)
     net.print_bdd_debug_structs()
+    net.compute_reachable_space(verbose=True)
