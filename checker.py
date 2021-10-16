@@ -279,7 +279,7 @@ class Network:
             reachable_states_bdd = reachable_states_bdd | next_states_bdd_nonprimed
 
             if verbose:
-#                print(f'iteration {i}: reached {self.mgr.count(reachable_states_bdd)} state(s)')
+                print(f'iteration {i}: reached {self.mgr.count(reachable_states_bdd)} state(s)')
                 self.print_bdd_states_debug(reachable_states_bdd)
 
             i += 1
