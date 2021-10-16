@@ -227,8 +227,8 @@ class Network:
         # build the global transition relation
 
         self.transition_relation = self.mgr.false
+
         # build transitions w.r.t. self.actions (possibly synchronising)
-        print(self.actions)
         for action in self.actions:
             sync_automata = self.get_automata_that_know_action(action)
             if len(sync_automata) > 0: # if someone reacts to the action...
@@ -245,16 +245,15 @@ class Network:
                 sync_transitions = sync_transitions & identity
                 self.transition_relation = self.transition_relation | sync_transitions
 
-        # TODO
-        
-        #     assert (not any([x in self.state_bdd_vars for x in automaton.state_bdd_vars])),\
-        #         'Error: two automata with the same name or other state-naming issue.'
+        # add local (tau) transitions
+        for auto in self.automata:
+            if auto.transition_relation[auto.tau_label] == self.mgr.false:
+                continue
+            other_automata = [oauto for oauto in self.automata if oauto != auto]
+            identity = functools.reduce(lambda x,y: x&y, [auto.identity for auto in other_automata])
 
-        
-            
-        # self.transition_relation = self.transition_relation & automaton.transition_relation
-        #     self.state_bdd_vars.extend(automaton.state_bdd_vars)
-        #     self.state_bdd_vars_nonprimed_to_primed_dict.update(automaton.state_bdd_vars_nonprimed_to_primed_dict)
+            local_transitions = auto.transition_relation[auto.tau_label] & identity
+            self.transition_relation = self.transition_relation | local_transitions
 
     def compute_reachable_space(self, verbose=False):
         # call after encoding model only
