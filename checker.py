@@ -227,7 +227,6 @@ class Network:
         # build the global transition relation
 
         self.transition_relation = self.mgr.false
-
         # build transitions w.r.t. self.actions (possibly synchronising)
         for action in self.actions:
             sync_automata = self.get_automata_that_know_action(action)
@@ -264,20 +263,19 @@ class Network:
 
         # frontier-based approach
         reachable_states_bdd = self.init_state_bdd
-        frontier = reachable_states_bdd
         prev_bdd = self.mgr.false
 
         nonprimed_state_and_action_bdd_var_names = self.state_bdd_vars + self.action_bdd_vars
+
         i = 1
-        while frontier != self.mgr.false:
+        while reachable_states_bdd != prev_bdd:
             
             prev_bdd = reachable_states_bdd
             next_states_bdd_primed = self.mgr.quantify((reachable_states_bdd & self.transition_relation), \
                                                 nonprimed_state_and_action_bdd_var_names, forall=False)
             next_states_bdd_nonprimed = self.mgr.let(self.state_bdd_vars_nonprimed_to_primed_dict, next_states_bdd_primed)
 
-            frontier = next_states_bdd_nonprimed & ~reachable_states_bdd
-            reachable_states_bdd = reachable_states_bdd | frontier
+            reachable_states_bdd = reachable_states_bdd | next_states_bdd_nonprimed
 
             if verbose:
                 print(f'iteration {i}: reached {self.mgr.count(reachable_states_bdd)} state(s)')
