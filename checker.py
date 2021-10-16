@@ -259,13 +259,12 @@ class Network:
         if verbose:
             print('computing reachable statespace')
         
-        # todo - all below is mess, throw it away
-
         # frontier-based approach
         reachable_states_bdd = self.init_state_bdd
         prev_bdd = self.mgr.false
 
         nonprimed_state_and_action_bdd_var_names = self.state_bdd_vars + self.action_bdd_vars
+        print(nonprimed_state_and_action_bdd_var_names)
 
         i = 1
         while reachable_states_bdd != prev_bdd:
@@ -324,4 +323,4 @@ if __name__ == '__main__':
 
     print(net)
     # net.print_bdd_debug_structs()
-#    net.compute_reachable_space(verbose=True)
+    net.compute_reachable_space(verbose=True)
