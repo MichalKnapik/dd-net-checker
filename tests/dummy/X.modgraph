@@ -1,0 +1,9 @@
+states
+AX
+BX
+CX
+transitions
+(AX, a ,BX)
+(BX, b ,CX)
+(CX, c ,AX)
+

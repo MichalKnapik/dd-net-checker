@@ -1,0 +1,9 @@
+states
+AZ
+BZ
+CZ
+transitions
+(AZ, b ,BZ)
+(BZ, c ,CZ)
+(CZ, l ,AZ)
+

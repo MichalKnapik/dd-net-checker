@@ -1,0 +1,9 @@
+states
+AY
+BY
+CY
+transitions
+(AY, a ,BY)
+(BY, c ,CY)
+(CY, u ,AY)
+

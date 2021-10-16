@@ -21,3 +21,6 @@ full statespace: 674 nodes, 2368 transitions
 
 dirname: case_w4d4c3
 full statespace: 38530 nodes, 232860 transitions
+
+dirname: dummy
+full statespace: 7 nodes, 9 transitions
