@@ -35,7 +35,7 @@ def read_actions(sync_fname):
 def read_model(model_fname):
 
     with open(model_fname) as f:
-        lines = [f.strip() for f in f.readlines()]
+        lines = [f.strip() for f in f.readlines() if len(f.strip()) > 0]
 
         if lines[0] != 'states':
             print("Model file error: no leading 'states'.")
@@ -242,9 +242,9 @@ class Network:
                     identity = self.mgr.true
 
                 sync_transitions = sync_transitions & identity
-
                 self.transition_relation = self.transition_relation | sync_transitions
-                
+
+        # TODO
         
         #     assert (not any([x in self.state_bdd_vars for x in automaton.state_bdd_vars])),\
         #         'Error: two automata with the same name or other state-naming issue.'
@@ -307,20 +307,23 @@ if __name__ == '__main__':
     mgr = _bdd.BDD()
 
     # read actions (common for all automata)
-    actions = read_actions('tests/case_w4d3c2/sync.modgraph')
+    actions = read_actions('sync.modgraph')
     action_bdd_var_names, action_bdd_encodings = encode_list_of_labels(actions, mgr, 'act')
     
     # make, read and encode automatons
     wuch = Automaton('wuch')
-    wuch.read_automaton('tests/case_w4d3c2/AND1.modgraph', actions)
+    wuch.read_automaton('X.modgraph', actions)
 
     wub = Automaton('wub')
-    wub.read_automaton('tests/case_w4d3c2/AND2.modgraph', actions)
+    wub.read_automaton('Y.modgraph', actions)
+
+    wuk = Automaton('wuk')
+    wuk.read_automaton('Z.modgraph', actions)    
     
     # make a network
-    net = Network([wuch, wub], actions, 'pulwa')
+    net = Network([wuch, wub, wuk], actions, 'pulwa')
     net.encode_model(mgr, action_bdd_var_names, action_bdd_encodings)
 
-    # print(net)
+    print(net)
     # net.print_bdd_debug_structs()
 #    net.compute_reachable_space(verbose=True)
