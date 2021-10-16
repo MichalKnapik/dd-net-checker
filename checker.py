@@ -228,6 +228,7 @@ class Network:
 
         self.transition_relation = self.mgr.false
         # build transitions w.r.t. self.actions (possibly synchronising)
+        print(self.actions)
         for action in self.actions:
             sync_automata = self.get_automata_that_know_action(action)
             if len(sync_automata) > 0: # if someone reacts to the action...
