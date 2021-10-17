@@ -61,7 +61,7 @@ def encode_list_of_labels(label_list, bdd_mgr, variable_prefix='', generate_prim
     - if generate_primed = True: as above, plus a dict from nonprimed to primed
       var names (for let-substitutions in bdd operations)."""
 
-    needed_vars = math.ceil(math.log2(len(label_list)))
+    needed_vars = 1 if len(label_list) == 1 else math.ceil(math.log2(len(label_list)))
     bdd_var_names = []
 
     if generate_primed:
@@ -269,6 +269,11 @@ class Network:
         i = 1
         while reachable_states_bdd != prev_bdd:
 
+            if verbose > 0:
+                print(f'iteration {i}: reached {self.mgr.count(reachable_states_bdd, len(self.state_bdd_vars))} state(s)')
+                if verbose > 1:
+                    self.print_bdd_states_debug(reachable_states_bdd)
+
             prev_bdd = reachable_states_bdd
             next_states_bdd_primed = self.mgr.quantify((reachable_states_bdd & self.transition_relation), \
                                                 nonprimed_state_and_action_bdd_var_names, forall=False)
@@ -276,11 +281,6 @@ class Network:
             next_states_bdd_nonprimed = self.mgr.let(self.state_bdd_vars_nonprimed_to_primed_dict, next_states_bdd_primed)
 
             reachable_states_bdd = reachable_states_bdd | next_states_bdd_nonprimed
-
-            if verbose > 0:
-                print(f'iteration {i}: reached {self.mgr.count(reachable_states_bdd)} state(s)')
-                if verbose > 1:
-                    self.print_bdd_states_debug(reachable_states_bdd)
 
             i += 1
 
@@ -343,7 +343,16 @@ if __name__ == '__main__':
     
     # run the checker
     print('** Computing reachable statespace. This might take a while... **')
-    net.compute_reachable_space(verbose=args.verbose)
+    reachable_states_bdd = net.compute_reachable_space(verbose=args.verbose)
 
-    # report
+    # report the number of states
+    print(f'Reached {mgr.count(reachable_states_bdd, len(net.state_bdd_vars))} state(s) ', end='')
+
+    # and lower approximation for the number of transitions
+    transitions = reachable_states_bdd & net.transition_relation & \
+        mgr.let(net.state_bdd_vars_nonprimed_to_primed_dict, reachable_states_bdd)
+    transitions = mgr.quantify(transitions, action_bdd_var_names, forall=False)
+    print(f'and {mgr.count(transitions, 2*len(net.state_bdd_vars))} transition(s).')
+    
     print('Done.')
+    
