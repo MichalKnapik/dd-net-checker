@@ -1,9 +1,0 @@
-states
-46
-47
-48
-transitions
-(46, leaf4 ,47)
-(47, leaf4_ok ,47)
-(46, leaf4_nok ,48)
-(48, leaf4_nok ,48)

@@ -1,0 +1,6 @@
+states
+34
+35
+transitions
+(34, sync ,35)
+(35, sync ,35)

@@ -1,9 +1,0 @@
-states
-19
-20
-21
-transitions
-(19, leaf6 ,20)
-(20, leaf6_ok ,20)
-(19, leaf6_nok ,21)
-(21, leaf6_nok ,21)

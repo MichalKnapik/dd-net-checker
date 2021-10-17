@@ -1,9 +1,0 @@
-states
-16
-17
-18
-transitions
-(16, leaf8 ,17)
-(17, leaf8_ok ,17)
-(16, leaf8_nok ,18)
-(18, leaf8_nok ,18)

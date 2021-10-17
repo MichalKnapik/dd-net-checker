@@ -1,9 +1,0 @@
-states
-22
-23
-24
-transitions
-(22, leaf5 ,23)
-(23, leaf5_ok ,23)
-(22, leaf5_nok ,24)
-(24, leaf5_nok ,24)

@@ -1,9 +1,0 @@
-states
-10
-11
-12
-transitions
-(10, leaf10 ,11)
-(11, leaf10_ok ,11)
-(10, leaf10_nok ,12)
-(12, leaf10_nok ,12)

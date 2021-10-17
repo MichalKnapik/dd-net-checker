@@ -1,9 +1,0 @@
-states
-30
-31
-32
-transitions
-(30, leaf2 ,31)
-(31, leaf2_ok ,31)
-(30, leaf2_nok ,32)
-(32, leaf2_nok ,32)
